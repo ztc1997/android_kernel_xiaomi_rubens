@@ -24,6 +24,8 @@
 #include <linux/cpufreq.h>
 #include <linux/uaccess.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
+#include <linux/kprobes.h>
 #include "mtk_cpu_dbg.h"
 #include "eem-dbg-v1.h"
 #include "../mcupm/include/mcupm_driver.h"
@@ -486,6 +488,160 @@ static int eem_dbg_repo_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+#define NUM_CLUSTER 3
+
+struct cpu_freq_offset {
+    unsigned int freq;
+    int offset;
+};
+
+struct cpu_freq_offset_array {
+    struct cpu_freq_offset *data;
+    size_t size;
+};
+
+static struct cpu_freq_offset_array cluster_freq_offsets[NUM_CLUSTER];
+
+static void free_cpu_freq_offset_array(struct cpu_freq_offset_array *array) {
+    kfree(array->data);
+    array->data = NULL;
+    array->size = 0;
+}
+
+static int copy_cpu_freq_offset_array(struct cpu_freq_offset_array *array, const char *buf, size_t count) {
+    int i, n;
+    struct cpu_freq_offset *data;
+
+    n = 0;
+    for (i = 0; i < count; i++) {
+        if (buf[i] == '\n') {
+            n++;
+        }
+    }
+
+    data = kmalloc(sizeof(struct cpu_freq_offset) * n, GFP_KERNEL);
+    if (!data) {
+        return -ENOMEM;
+    }
+
+    n = 0;
+    for (i = 0; i < count; i++) {
+        if (sscanf(buf + i, "%u %d", &data[n].freq, &data[n].offset) == 2) {
+            n++;
+            while (i < count && buf[i] != '\n') {
+                i++;
+            }
+        }
+    }
+
+    free_cpu_freq_offset_array(array);
+
+    array->data = data;
+    array->size = n;
+
+    return 0;
+}
+
+static int show_cpu_freq_offset_array(struct seq_file *m, struct cpu_freq_offset_array *array) {
+    int i;
+
+    for (i = 0; i < array->size; i++) {
+        seq_printf(m, "%u %d\n", array->data[i].freq, array->data[i].offset);
+    }
+
+    return 0;
+}
+
+static int C0_freq_offset_proc_show(struct seq_file *m, void *v) {
+    return show_cpu_freq_offset_array(m, &cluster_freq_offsets[0]);
+}
+
+static ssize_t C0_freq_offset_proc_write(struct file *file, const char __user *buf,
+                                   size_t count, loff_t *ppos) {
+    char *kbuf;
+
+    kbuf = kmalloc(count + 1, GFP_KERNEL);
+    if (!kbuf) {
+        return -ENOMEM;
+    }
+
+    if (copy_from_user(kbuf, buf, count)) {
+        kfree(kbuf);
+        return -EFAULT;
+    }
+
+    kbuf[count] = '\0';
+
+    if (copy_cpu_freq_offset_array(&cluster_freq_offsets[0], kbuf, count)) {
+        kfree(kbuf);
+        return -EINVAL;
+    }
+
+    kfree(kbuf);
+
+    return count;
+}
+
+static int C1_freq_offset_proc_show(struct seq_file *m, void *v) {
+    return show_cpu_freq_offset_array(m, &cluster_freq_offsets[1]);
+}
+
+static ssize_t C1_freq_offset_proc_write(struct file *file, const char __user *buf,
+                                   size_t count, loff_t *ppos) {
+    char *kbuf;
+
+    kbuf = kmalloc(count + 1, GFP_KERNEL);
+    if (!kbuf) {
+        return -ENOMEM;
+    }
+
+    if (copy_from_user(kbuf, buf, count)) {
+        kfree(kbuf);
+        return -EFAULT;
+    }
+
+    kbuf[count] = '\0';
+
+    if (copy_cpu_freq_offset_array(&cluster_freq_offsets[1], kbuf, count)) {
+        kfree(kbuf);
+        return -EINVAL;
+    }
+
+    kfree(kbuf);
+
+    return count;
+}
+
+static int C2_freq_offset_proc_show(struct seq_file *m, void *v) {
+    return show_cpu_freq_offset_array(m, &cluster_freq_offsets[2]);
+}
+
+static ssize_t C2_freq_offset_proc_write(struct file *file, const char __user *buf,
+                                   size_t count, loff_t *ppos) {
+    char *kbuf;
+
+    kbuf = kmalloc(count + 1, GFP_KERNEL);
+    if (!kbuf) {
+        return -ENOMEM;
+    }
+
+    if (copy_from_user(kbuf, buf, count)) {
+        kfree(kbuf);
+        return -EFAULT;
+    }
+
+    kbuf[count] = '\0';
+
+    if (copy_cpu_freq_offset_array(&cluster_freq_offsets[2], kbuf, count)) {
+        kfree(kbuf);
+        return -EINVAL;
+    }
+
+    kfree(kbuf);
+
+    return count;
+}
+
 PROC_FOPS_RO(eem_dbg_repo);
 PROC_FOPS_RW(eem_debug);
 PROC_FOPS_RO(eem_cur_volt);
@@ -496,6 +652,9 @@ PROC_FOPS_RW(eem_sn_disable);
 PROC_FOPS_RO(eem_force_sensing);
 PROC_FOPS_RO(eem_pull_data);
 PROC_FOPS_RW(eem_setclamp);
+PROC_FOPS_RW(C0_freq_offset);
+PROC_FOPS_RW(C1_freq_offset);
+PROC_FOPS_RW(C2_freq_offset);
 
 static int create_debug_fs(void)
 {
@@ -520,6 +679,9 @@ static int create_debug_fs(void)
 		PROC_ENTRY(eem_force_sensing),
 		PROC_ENTRY(eem_pull_data),
 		PROC_ENTRY(eem_dbg_repo),
+		PROC_ENTRY(C0_freq_offset),
+		PROC_ENTRY(C1_freq_offset),
+		PROC_ENTRY(C2_freq_offset),
 	};
 
 	eem_dir = proc_mkdir("eem", NULL);
@@ -545,6 +707,105 @@ static void init_mcl50_setting(void)
 
 }
 
+static int last_cluster_offset[NUM_CLUSTER];
+
+static void set_cluster_offset_by_freq(unsigned int cluster_id, unsigned int freq)
+{
+	int offset = 0;
+	struct eemsn_ipi_data eem_data;
+	struct cpu_freq_offset_array *offsets = &cluster_freq_offsets[cluster_id];
+
+	int i;
+	for (i = 0; i < offsets->size; i++) {
+		if (freq >= offsets->data[i].freq) {
+			offset = offsets->data[i].offset;
+			break;
+		}
+	}
+	
+	if (offset == last_cluster_offset[cluster_id]) {
+		return;
+	}
+	
+	memset(&eem_data, 0, sizeof(struct eemsn_ipi_data));
+	eem_data.u.data.arg[0] = cluster_id;
+	eem_data.u.data.arg[1] = offset;
+	eem_to_up(IPI_EEMSN_OFFSET_PROC_WRITE, &eem_data);
+	last_cluster_offset[cluster_id] = offset;
+}
+
+static int get_cluster_id(cpumask_var_t mask)
+{
+	switch (cpumask_first(mask)) {
+	case 0:
+		return 0;
+	case 4:
+		return 1;
+	case 7:
+		return 2;
+	default:
+		pr_err("eem: get_cluster_id: unknown cluster, cpu%*pbl",
+			 cpumask_pr_args(mask));
+		return -1;
+	}
+}
+
+static void freq_change_handler(struct cpufreq_policy *policy, 
+					unsigned int old, unsigned int new, unsigned long val)
+{
+	unsigned int cluster_id = 0;
+
+	if (new > old) {
+		if (val == CPUFREQ_POSTCHANGE) {
+			cluster_id = get_cluster_id(policy->related_cpus);
+			set_cluster_offset_by_freq(cluster_id, new);
+		}
+	} else {
+		if (val == CPUFREQ_PRECHANGE) {
+			cluster_id = get_cluster_id(policy->related_cpus);
+			set_cluster_offset_by_freq(cluster_id, new);
+		}
+	}
+}
+
+static int eem_freq_callback(struct notifier_block *nb, unsigned long val,
+					void *data)
+{
+	struct cpufreq_freqs *freq = data;
+	freq_change_handler(freq->policy, freq->old, freq->new, val);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block eem_freq_notifier = {
+	.notifier_call = eem_freq_callback,
+};
+
+static int pre_cpufreq_driver_fast_switch(struct kprobe *p, struct pt_regs *regs)
+{
+    struct cpufreq_policy *policy = (struct cpufreq_policy *)regs->regs[0];
+    unsigned int target_freq = (unsigned int)regs->regs[1];
+
+	freq_change_handler(policy, policy->cur, target_freq, CPUFREQ_PRECHANGE);
+
+    return 0;
+}
+
+static void post_cpufreq_driver_fast_switch(struct kprobe *p, struct pt_regs *regs,
+                         unsigned long flags)
+{
+	struct cpufreq_policy *policy = (struct cpufreq_policy *)regs->regs[0];
+    unsigned int target_freq = (unsigned int)regs->regs[1];
+
+	freq_change_handler(policy, policy->cur, target_freq, CPUFREQ_POSTCHANGE);
+}
+
+static struct kprobe cpufreq_driver_fast_switch_kp = {
+    .symbol_name = "cpufreq_driver_fast_switch",
+    .pre_handler = pre_cpufreq_driver_fast_switch,
+    .post_handler = post_cpufreq_driver_fast_switch,
+    .fault_handler = NULL,
+};
+
 int mtk_eem_init(struct platform_device *pdev)
 {
 	int err = 0;
@@ -564,7 +825,7 @@ int mtk_eem_init(struct platform_device *pdev)
 	eem_csram_base = eemsn_log;
 
 	err = mtk_ipi_register(get_mcupm_ipidev(), CH_S_EEMSN, NULL, NULL,
-		(void *)&ipi_ackdata);
+			       (void *)&ipi_ackdata);
 	if (err != 0) {
 		pr_info("%s error ret:%d\n", __func__, err);
 		return 0;
@@ -576,6 +837,17 @@ int mtk_eem_init(struct platform_device *pdev)
 		if (!err && enable)
 			init_mcl50_setting();
 	}
+
+	memset(last_cluster_offset, 0, sizeof(last_cluster_offset));
+	cpufreq_register_notifier(&eem_freq_notifier,
+				  CPUFREQ_TRANSITION_NOTIFIER);
+
+	err = register_kprobe(&cpufreq_driver_fast_switch_kp);
+    if (err != 0) {
+        pr_err("eem-dbg: cpufreq_driver_fast_switch_kp failed, returned %d\n", err);
+    }
+    pr_info("eem-dbg: Planted cpufreq_driver_fast_switch_kp at %p\n", cpufreq_driver_fast_switch_kp.addr);
+
 	return create_debug_fs();
 }
 

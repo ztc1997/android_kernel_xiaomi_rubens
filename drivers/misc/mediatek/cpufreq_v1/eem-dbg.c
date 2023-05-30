@@ -491,155 +491,155 @@ static int eem_dbg_repo_proc_show(struct seq_file *m, void *v)
 #define NUM_CLUSTER 3
 
 struct cpu_freq_offset {
-    unsigned int freq;
-    int offset;
+	unsigned int freq;
+	int offset;
 };
 
 struct cpu_freq_offset_array {
-    struct cpu_freq_offset *data;
-    size_t size;
+	struct cpu_freq_offset *data;
+	size_t size;
 };
 
 static struct cpu_freq_offset_array cluster_freq_offsets[NUM_CLUSTER];
 
 static void free_cpu_freq_offset_array(struct cpu_freq_offset_array *array) {
-    kfree(array->data);
-    array->data = NULL;
-    array->size = 0;
+	kfree(array->data);
+	array->data = NULL;
+	array->size = 0;
 }
 
 static int copy_cpu_freq_offset_array(struct cpu_freq_offset_array *array, const char *buf, size_t count) {
-    int i, n;
-    struct cpu_freq_offset *data;
+	int i, n;
+	struct cpu_freq_offset *data;
 
-    n = 0;
-    for (i = 0; i < count; i++) {
-        if (buf[i] == '\n') {
-            n++;
-        }
-    }
+	n = 0;
+	for (i = 0; i < count; i++) {
+		if (buf[i] == '\n') {
+			n++;
+		}
+	}
 
-    data = kmalloc(sizeof(struct cpu_freq_offset) * n, GFP_KERNEL);
-    if (!data) {
-        return -ENOMEM;
-    }
+	data = kmalloc(sizeof(struct cpu_freq_offset) * n, GFP_KERNEL);
+	if (!data) {
+		return -ENOMEM;
+	}
 
-    n = 0;
-    for (i = 0; i < count; i++) {
-        if (sscanf(buf + i, "%u %d", &data[n].freq, &data[n].offset) == 2) {
-            n++;
-            while (i < count && buf[i] != '\n') {
-                i++;
-            }
-        }
-    }
+	n = 0;
+	for (i = 0; i < count; i++) {
+		if (sscanf(buf + i, "%u %d", &data[n].freq, &data[n].offset) == 2) {
+			n++;
+			while (i < count && buf[i] != '\n') {
+				i++;
+			}
+		}
+	}
 
-    free_cpu_freq_offset_array(array);
+	free_cpu_freq_offset_array(array);
 
-    array->data = data;
-    array->size = n;
+	array->data = data;
+	array->size = n;
 
-    return 0;
+	return 0;
 }
 
 static int show_cpu_freq_offset_array(struct seq_file *m, struct cpu_freq_offset_array *array) {
-    int i;
+	int i;
 
-    for (i = 0; i < array->size; i++) {
-        seq_printf(m, "%u %d\n", array->data[i].freq, array->data[i].offset);
-    }
+	for (i = 0; i < array->size; i++) {
+		seq_printf(m, "%u %d\n", array->data[i].freq, array->data[i].offset);
+	}
 
-    return 0;
+	return 0;
 }
 
 static int C0_freq_offset_proc_show(struct seq_file *m, void *v) {
-    return show_cpu_freq_offset_array(m, &cluster_freq_offsets[0]);
+	return show_cpu_freq_offset_array(m, &cluster_freq_offsets[0]);
 }
 
 static ssize_t C0_freq_offset_proc_write(struct file *file, const char __user *buf,
-                                   size_t count, loff_t *ppos) {
-    char *kbuf;
+								   size_t count, loff_t *ppos) {
+	char *kbuf;
 
-    kbuf = kmalloc(count + 1, GFP_KERNEL);
-    if (!kbuf) {
-        return -ENOMEM;
-    }
+	kbuf = kmalloc(count + 1, GFP_KERNEL);
+	if (!kbuf) {
+		return -ENOMEM;
+	}
 
-    if (copy_from_user(kbuf, buf, count)) {
-        kfree(kbuf);
-        return -EFAULT;
-    }
+	if (copy_from_user(kbuf, buf, count)) {
+		kfree(kbuf);
+		return -EFAULT;
+	}
 
-    kbuf[count] = '\0';
+	kbuf[count] = '\0';
 
-    if (copy_cpu_freq_offset_array(&cluster_freq_offsets[0], kbuf, count)) {
-        kfree(kbuf);
-        return -EINVAL;
-    }
+	if (copy_cpu_freq_offset_array(&cluster_freq_offsets[0], kbuf, count)) {
+		kfree(kbuf);
+		return -EINVAL;
+	}
 
-    kfree(kbuf);
+	kfree(kbuf);
 
-    return count;
+	return count;
 }
 
 static int C1_freq_offset_proc_show(struct seq_file *m, void *v) {
-    return show_cpu_freq_offset_array(m, &cluster_freq_offsets[1]);
+	return show_cpu_freq_offset_array(m, &cluster_freq_offsets[1]);
 }
 
 static ssize_t C1_freq_offset_proc_write(struct file *file, const char __user *buf,
-                                   size_t count, loff_t *ppos) {
-    char *kbuf;
+								   size_t count, loff_t *ppos) {
+	char *kbuf;
 
-    kbuf = kmalloc(count + 1, GFP_KERNEL);
-    if (!kbuf) {
-        return -ENOMEM;
-    }
+	kbuf = kmalloc(count + 1, GFP_KERNEL);
+	if (!kbuf) {
+		return -ENOMEM;
+	}
 
-    if (copy_from_user(kbuf, buf, count)) {
-        kfree(kbuf);
-        return -EFAULT;
-    }
+	if (copy_from_user(kbuf, buf, count)) {
+		kfree(kbuf);
+		return -EFAULT;
+	}
 
-    kbuf[count] = '\0';
+	kbuf[count] = '\0';
 
-    if (copy_cpu_freq_offset_array(&cluster_freq_offsets[1], kbuf, count)) {
-        kfree(kbuf);
-        return -EINVAL;
-    }
+	if (copy_cpu_freq_offset_array(&cluster_freq_offsets[1], kbuf, count)) {
+		kfree(kbuf);
+		return -EINVAL;
+	}
 
-    kfree(kbuf);
+	kfree(kbuf);
 
-    return count;
+	return count;
 }
 
 static int C2_freq_offset_proc_show(struct seq_file *m, void *v) {
-    return show_cpu_freq_offset_array(m, &cluster_freq_offsets[2]);
+	return show_cpu_freq_offset_array(m, &cluster_freq_offsets[2]);
 }
 
 static ssize_t C2_freq_offset_proc_write(struct file *file, const char __user *buf,
-                                   size_t count, loff_t *ppos) {
-    char *kbuf;
+								   size_t count, loff_t *ppos) {
+	char *kbuf;
 
-    kbuf = kmalloc(count + 1, GFP_KERNEL);
-    if (!kbuf) {
-        return -ENOMEM;
-    }
+	kbuf = kmalloc(count + 1, GFP_KERNEL);
+	if (!kbuf) {
+		return -ENOMEM;
+	}
 
-    if (copy_from_user(kbuf, buf, count)) {
-        kfree(kbuf);
-        return -EFAULT;
-    }
+	if (copy_from_user(kbuf, buf, count)) {
+		kfree(kbuf);
+		return -EFAULT;
+	}
 
-    kbuf[count] = '\0';
+	kbuf[count] = '\0';
 
-    if (copy_cpu_freq_offset_array(&cluster_freq_offsets[2], kbuf, count)) {
-        kfree(kbuf);
-        return -EINVAL;
-    }
+	if (copy_cpu_freq_offset_array(&cluster_freq_offsets[2], kbuf, count)) {
+		kfree(kbuf);
+		return -EINVAL;
+	}
 
-    kfree(kbuf);
+	kfree(kbuf);
 
-    return count;
+	return count;
 }
 
 PROC_FOPS_RO(eem_dbg_repo);
@@ -782,28 +782,28 @@ static struct notifier_block eem_freq_notifier = {
 
 static int pre_cpufreq_driver_fast_switch(struct kprobe *p, struct pt_regs *regs)
 {
-    struct cpufreq_policy *policy = (struct cpufreq_policy *)regs->regs[0];
-    unsigned int target_freq = (unsigned int)regs->regs[1];
+	struct cpufreq_policy *policy = (struct cpufreq_policy *)regs->regs[0];
+	unsigned int target_freq = (unsigned int)regs->regs[1];
 
 	freq_change_handler(policy, policy->cur, target_freq, CPUFREQ_PRECHANGE);
 
-    return 0;
+	return 0;
 }
 
 static void post_cpufreq_driver_fast_switch(struct kprobe *p, struct pt_regs *regs,
-                         unsigned long flags)
+					unsigned long flags)
 {
 	struct cpufreq_policy *policy = (struct cpufreq_policy *)regs->regs[0];
-    unsigned int target_freq = (unsigned int)regs->regs[1];
+	unsigned int target_freq = (unsigned int)regs->regs[1];
 
 	freq_change_handler(policy, policy->cur, target_freq, CPUFREQ_POSTCHANGE);
 }
 
 static struct kprobe cpufreq_driver_fast_switch_kp = {
-    .symbol_name = "cpufreq_driver_fast_switch",
-    .pre_handler = pre_cpufreq_driver_fast_switch,
-    .post_handler = post_cpufreq_driver_fast_switch,
-    .fault_handler = NULL,
+	.symbol_name = "cpufreq_driver_fast_switch",
+	.pre_handler = pre_cpufreq_driver_fast_switch,
+	.post_handler = post_cpufreq_driver_fast_switch,
+	.fault_handler = NULL,
 };
 
 int mtk_eem_init(struct platform_device *pdev)
@@ -843,10 +843,10 @@ int mtk_eem_init(struct platform_device *pdev)
 				  CPUFREQ_TRANSITION_NOTIFIER);
 
 	err = register_kprobe(&cpufreq_driver_fast_switch_kp);
-    if (err != 0) {
-        pr_err("eem-dbg: cpufreq_driver_fast_switch_kp failed, returned %d\n", err);
-    }
-    pr_info("eem-dbg: Planted cpufreq_driver_fast_switch_kp at %p\n", cpufreq_driver_fast_switch_kp.addr);
+	if (err != 0) {
+		pr_err("eem-dbg: cpufreq_driver_fast_switch_kp failed, returned %d\n", err);
+	}
+	pr_info("eem-dbg: Planted cpufreq_driver_fast_switch_kp at %p\n", cpufreq_driver_fast_switch_kp.addr);
 
 	return create_debug_fs();
 }
